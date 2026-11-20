@@ -1,0 +1,80 @@
+.homework-source { padding: 12px 16px; background: #f1f5fb; border-radius: 8px; font-size: 14px; margin-bottom: 24px; }
+.homework-source p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.homework-source summary { cursor: pointer; color: #53647b; }
+.homework-source a { color: #315acb; }
+.workspace-action { color: #e1eafb; white-space: nowrap; padding: 6px 8px; border-radius: 4px; }
+.workspace-action:hover { background: #ffffff18; }
+.workspace-username { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0; }
+.child-switch { max-width: 140px; min-height: 32px; padding: 4px 8px; color: #20334d; font-size: 13px; border: 0; border-radius: 4px; }
+.homework-page { max-width: 1060px; margin: 0 auto; padding: 32px; color: #17233c; }
+.homework-heading, .family-progress header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.homework-heading h1, .family-page h1 { font-size: 24px; font-weight: 600; margin: 0 0 8px; }
+.homework-heading p, .family-progress header p { color: #68768d; margin: 0; }
+.homework-intake { background: #fff; border: 1px solid #e5eaf3; border-radius: 8px; padding: 24px; margin: 24px 0; }
+.intake-options, .intake-buttons, .question-actions, .lesson-tools { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.intake-options { align-items: flex-end; }
+.intake-options label { display: grid; gap: 8px; font-size: 13px; min-width: 140px; }
+.intake-options select, .child-row input, .question-edit textarea { border: 1px solid #d6deea; border-radius: 4px; padding: 8px 12px; background: #fff; color: #17233c; font: inherit; }
+.intake-buttons { margin-left: auto; }
+.photo-strip { display: flex; gap: 12px; overflow-x: auto; margin: 16px 0; padding-top: 8px; }
+.photo-strip > div { position: relative; width: 104px; flex: none; }
+.photo-strip img { width: 104px; height: 128px; object-fit: contain; background: #fff; border: 1px solid #e5eaf3; border-radius: 4px; }
+.photo-strip small { display: block; padding: 4px 0; color: #68768d; }
+.photo-strip button { position: absolute; right: 4px; top: 4px; display: grid; place-items: center; border-radius: 4px; padding: 4px; background: #fff; border: 1px solid #d6deea; }
+.homework-filters { display: flex; gap: 16px; border-bottom: 1px solid #dfe5ef; margin: 24px 0; }
+.homework-filters button { padding: 12px 0; border: 0; border-bottom: 2px solid transparent; background: none; color: #68768d; }
+.homework-filters button.selected { color: #315acb; border-bottom-color: #315acb; font-weight: 600; }
+.homework-filters button:last-child { margin-left: auto; }
+.homework-sheet { margin-bottom: 24px; background: #fff; border: 1px solid #e5eaf3; border-radius: 8px; overflow: hidden; }
+.homework-sheet > header { display: flex; align-items: center; gap: 16px; padding: 16px 24px; background: #f1f5fb; color: #53647b; font-size: 13px; }
+.homework-sheet > header div { flex: 1; min-width: 0; }
+.homework-sheet > header strong { display: block; color: #20334d; font-size: 16px; }
+.homework-sheet > header small { display: block; margin-top: 4px; }
+.homework-question { padding: 24px; border-top: 1px solid #e5eaf3; }
+.homework-question > header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.verdict { font-size: 12px; padding: 4px 8px; border-radius: 4px; color: #446855; background: #eef6f0; }
+.verdict.wrong { color: #99532b; background: #fff3e9; }
+.verdict.uncertain { color: #68768d; background: #f0f2f6; }
+.question-text { white-space: pre-wrap; font-size: 16px; line-height: 1.85; overflow-wrap: anywhere; }
+.student-answer { white-space: pre-wrap; overflow-wrap: anywhere; background: #f7f9fc; padding: 12px 16px; border-radius: 4px; }
+.student-answer span { display: block; font-size: 12px; color: #68768d; margin-bottom: 4px; }
+.homework-question details { color: #53647b; font-size: 14px; line-height: 1.8; margin: 16px 0; overflow-wrap: anywhere; }
+.homework-question summary { cursor: pointer; }
+.review-date { display: block; margin-top: 12px; color: #68768d; }
+.question-edit { margin-top: 16px; padding: 16px; background: #f7f9fc; border-radius: 8px; }
+.question-edit label { display: grid; gap: 8px; margin-bottom: 12px; font-size: 14px; }
+.question-edit textarea { width: 100%; resize: vertical; }
+.inline-success { color: #446855; font-size: 14px; }
+.homework-empty { padding: 32px 24px; text-align: center; color: #68768d; }
+.homework-empty h2 { font-size: 20px; color: #20334d; }
+.sheet-note { padding: 16px 24px; font-size: 14px; color: #68768d; }
+.homework-preview { padding: 16px; background: #edf1f7; border-radius: 8px; }
+.homework-preview img { display: block; max-width: 100%; max-height: 720px; margin: 16px auto 0; object-fit: contain; }
+.family-progress { margin: 24px 0; padding: 24px 0; border-top: 1px solid #e5eaf3; border-bottom: 1px solid #e5eaf3; }
+.family-progress h2 { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+.family-evidence { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin: 24px 0 16px; }
+.family-evidence strong, .family-evidence span { display: block; }
+.family-evidence strong { font-size: 24px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.family-evidence span { font-size: 12px; color: #68768d; margin-top: 4px; }
+.child-row { display: flex; align-items: flex-end; gap: 16px; padding: 24px 0; border-bottom: 1px solid #e5eaf3; flex-wrap: wrap; }
+.child-row label { display: grid; gap: 8px; font-size: 14px; }
+@media(max-width: 900px) { .workspace-username, .workspace-brand > span { display: none; } .workspace-account { gap: 4px; } }
+@media(max-width: 600px) {
+  .workspace-bar { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: start; height: auto; min-height: 48px; padding: 8px 12px; gap: 8px; }
+  .workspace-brand { margin-right: 0; padding-top: 4px; } .workspace-account { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; }
+  .workspace-account .preview-label { display: none; } .child-switch { max-width: none; width: 100%; }
+  .workspace-action { font-size: 12px; padding: 4px; }
+  .workspace-account
+  .workspace-overview .resume-learning { display: grid; grid-template-columns: 44px minmax(0, 1fr); gap: 12px; }
+  .workspace-overview .resume-learning > .button { grid-column: 1 / -1; justify-content: center; width: 100%; margin-left: 0; }
+  .workspace-overview .resume-learning h2 { font-size: 20px; line-height: 1.5; }
+  .homework-page { padding: 20px 16px; } .homework-heading { align-items: flex-start; }
+  .homework-heading p { font-size: 13px; } .homework-heading > a { flex-shrink: 0; padding: 8px; font-size: 12px; }
+  .homework-intake { padding: 16px; } .intake-options { gap: 16px; } .intake-options label { min-width: 0; flex: 1; }
+  .intake-options select { width: 100%; } .intake-buttons { margin: 0; flex-basis: 100%; }
+  .homework-sheet > header { padding: 12px 16px; gap: 8px; } .homework-sheet > header small { font-size: 11px; }
+  .homework-question { padding: 16px; } .question-actions { gap: 12px; font-size: 12px; }
+  .family-progress header { align-items: flex-start; } .family-progress header .button { font-size: 12px; padding: 8px; flex-shrink: 0; }
+  .family-progress header p { font-size: 13px; } .family-evidence { grid-template-columns: repeat(3, 1fr); }
+  .lesson-tools { gap: 8px; } .lesson-tools a { font-size: 12px; } .lesson-tools .button { padding: 6px; font-size: 12px; }
+}
