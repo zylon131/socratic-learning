@@ -13,9 +13,32 @@ const familyPolicy = {
   practical: '从可观察的小任务开始，拆解行动、观察与改进。先示范，再让学生描述或尝试适合条件的一步。评价具体过程，不根据文字对话宣称已经掌握身体动作或实际操作。',
 }
 
-export const teachingMoves = ['ask', 'clarify', 'explain', 'hint', 'visualize', 'practice', 'feedback', 'recap', 'repair_offer', 'resume', 'diagnose_baseline', 'build_intuition', 'targeted_question', 'misconception_hint', 'probe_reason', 'verify_transfer', 'answer_detour', 'scaffold_demonstration', 'level_up', 'orient', 'probe', 'check_transfer', 'review', 'reflect', 'respond_to_detour', 'clarify_goal']
+export const teachingMoves = ['ask', 'clarify', 'explain', 'compare', 'visualize', 'explore', 'advance', 'hint', 'practice', 'feedback', 'recap', 'repair_offer', 'resume', 'diagnose_baseline', 'build_intuition', 'targeted_question', 'misconception_hint', 'probe_reason', 'verify_transfer', 'answer_detour', 'scaffold_demonstration', 'level_up', 'orient', 'probe', 'check_transfer', 'review', 'reflect', 'respond_to_detour', 'clarify_goal']
 export const observationKinds = ['misconception_hypothesis', 'understanding_hypothesis', 'preference', 'learning_goal']
 const bounded = (v, n) => typeof v === 'string' && v.trim().length > 0 && v.length <= n
+
+export function planTeachingTurn({ text = '', continuation, progress, earlierProbe, unsure }) {
+  if (/今天先到这|今天不学|先暂停|先停|先结束|今天到这|暂时不学|先不学了|下次再学|先总结/.test(text)) {
+    return { goal: 'pause', moves: ['recap'], questionMode: 'none' }
+  }
+  if (/直接(?:讲|教|告诉)|只想(?:听|看)|(?:不用|别|不要)(?:考|问|出题)|快一点|加快|说重点/.test(text) && !/不要(?:提前)?给答案/.test(text)) {
+    return { goal: 'explain', moves: ['explain', 'compare', 'visualize', 'advance'], questionMode: 'none' }
+  }
+  if (/换(?:个|一个|到|门|个新的)(?:知识点|专题|话题)|下一个知识点/.test(text)) {
+    return { goal: 'change_topic', moves: ['advance', 'clarify_goal', 'explain'], questionMode: 'any' }
+  }
+  if (/画(?:个|张)?图|图解|还是不懂|仍然不懂|听不懂/.test(text)) {
+    return { goal: 'change_representation', moves: ['visualize', 'compare', 'build_intuition', 'explore'], questionMode: 'any', visual: true }
+  }
+  if (unsure || /我.{0,3}(?:猜的|蒙的)|我是猜的/.test(text)) {
+    return { goal: 'verify_guess', moves: ['probe_reason', 'compare', 'hint', 'build_intuition'], questionMode: 'new_evidence' }
+  }
+  if (earlierProbe) return { goal: 'use_probe_result', moves: ['explain', 'compare', 'visualize', 'advance', 'feedback'], questionMode: 'none' }
+  if (progress && continuation) {
+    return { goal: 'continue_with_new_evidence', moves: ['compare', 'probe_reason', 'verify_transfer', 'visualize', 'explain', 'advance'], questionMode: 'new_evidence' }
+  }
+  return null
+}
 
 export function teachingPolicy(subject, level, { adapterSupportsDeterministic = false, loadedSkills = [], activeTask = null, pausedTasks = [] } = {}) {
   const younger = ['一年级', '二年级', '三年级'].includes(level)
@@ -24,9 +47,9 @@ export function teachingPolicy(subject, level, { adapterSupportsDeterministic = 
 1. 已给题目就接住题目，明确专题就从这个专题讲一个简短示例。学段代表本轮教学范围。正常带学直接讲解并按需要练习；发现与当前专题相关的困难再做局部探查，先修只在确有必要时回补。
 2. 先处理上一题的答案和理由，再处理同条消息里的追问。对照 questionToAssess，答对但自述猜测时确认答案，追问或演示理由。已经说清理由时指出说对了什么，再按需要换条件检查。错了优先给针对性提示，保留学生自己纠正的机会。
 如果 intent 是 request_new_exercise，学生提供的是要出的题、题干或选项，请给新题，不能把这些文字算成对旧题的作答。学生只点选而没有给理由时解释该选项为什么成立，避免替学生编造推理。
-3. 一次给一个主要教学动作。用分段、公式和图解释具体难点。给单选、数值或简答题时使用对应题卡，答案留到提交后。没有出题必要时可以直接讲解。问得快就集中讲，听不懂就换例子。
+3. 本轮可以组合确认答案、解释、对比、图解、探索和检查理解。用分段、公式和图解释具体难点。给单选、数值或简答题时使用对应题卡，答案留到提交后。没有出题必要时可以直接讲解。问得快就集中讲，听不懂就换例子。
 4. 学生说今天先停时，只总结他已展示的表现与下次接点，不提新题、不宣称尚待验证的内容已经掌握。
-5. afterCheckpoint 为真时，当前练习已收束。直接回应学生补充的理解、理由或追问。只选对时可以说明已经能辨认，可靠的理由说明能解释；独立应用还需新情境的实际答案。学生只补充了理由时也可评估，assessment 中引用这段理由作为原话和 reasoningExcerpt。不要再写新的练习题。intent 为 advance_lesson 时，转到下一相关知识点并开讲。intent 为 request_practice 时，只给学生主动要求的一道变式。
+5. teachingPlan 给出本轮可选教学动作和出题边界，先从 moves 选择一个主要动作，再组织内容。questionMode 为 none 时，正文也不要设置等学生作答的新题。goal 为 continue_with_new_evidence 时，接住本次判断并继续教，同类题连续答对只证明这些题能辨认。选一个尚无证据的判断依据或边界条件，先解释或用两个现象作对照，再按需要验证。适合并列比较时使用 learn-comparison，可与题卡同轮出现。需要学生判断时，题卡应检查证据是否充分、条件变了结论如何变化，或请学生解释依据。不要继续问两道已答对题考过的原始分类，也不要宣告课程结束。如果使用单选检查新证据，标记 "focus":"apply_rule" 并在题面明确新条件。学生已回答过这种验证后，就用回答里的实际证据教学，情况清楚时主动推进。
 6. optionalPracticeFeedback 为真时，只点评学生主动要求的那一道变式。不自动续出下一题。
 
 【教学动作（内部决策，不向学生暴露）】

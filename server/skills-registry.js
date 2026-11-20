@@ -1,7 +1,7 @@
 // M10 Pedagogy Skill Registry & Curriculum Seeding
 // Separates platform safety rules, teaching skills, and discipline skills with explicit versioning.
 
-export const PROMPT_VERSION = 'v1.3-practice-checkpoint'
+export const PROMPT_VERSION = 'v1.4-teaching-continuity'
 
 export const SKILL_VERSIONS = {
   platform_policy: '1.0.0',

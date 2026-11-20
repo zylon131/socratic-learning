@@ -382,7 +382,9 @@ export function SubjectView({ subject, subjects = [], conversationId, config, re
                 {item.user_image && <img className="user-message-image" src={item.user_image} alt="上传的学习图片" />}
                 {item.prompt && <div>{item.prompt}</div>}
               </div>}
-              {item.presentation ? <TeacherMessage><LearningResponse response={active ? learning.active : item.presentation} interactive={active} {...responseProps} /></TeacherMessage> : item.reply && <TeacherMessage><p className="legacy-reply">{item.reply}</p></TeacherMessage>}
+              {item.presentation?.presentation?.length > 0 || item.presentation?.actions?.length > 0
+                ? <TeacherMessage><LearningResponse response={active ? learning.active : item.presentation} interactive={active} {...responseProps} /></TeacherMessage>
+                : item.reply && <TeacherMessage><p className="legacy-reply">{item.reply}</p></TeacherMessage>}
               {item.status === 'running' && <div className="thinking-indicator" role="status"><span className="thinking-dots"><i /><i /><i /></span><span>{busyPhase || '老师正在根据你的回答思考下一步…'}</span></div>}
               {item.status === 'failed' && <div className="failed-message">本次回复未完成，已有学习进度已保留。<button className="text-button" disabled={working} onClick={() => setDraft(item.prompt)}>重新发送</button></div>}
             </div>
@@ -395,7 +397,8 @@ export function SubjectView({ subject, subjects = [], conversationId, config, re
               <span className="typing-caret" aria-hidden="true" />
             </TeacherMessage>
           </div>}
-          {busy && (!live || live.presentation.length === 0) && <div className="thinking-indicator" role="status"><span className="thinking-dots"><i /><i /><i /></span><span>{busyPhase || '老师正在思考…'}</span></div>}
+          {busy && (!live || live.presentation.length === 0) && <div className="thinking-indicator" role="status"><span className="thinking-dots"><i /><i /><i /></span><span>{feedback?.interim ? `${feedback.interim} 老师正在接着讲…` : busyPhase || '老师正在思考…'}</span></div>}
+          {feedback?.failed && feedback.interim && <p className="muted" role="status">{feedback.interim} 作答已保存，点评可重试。</p>}
           <div ref={bottom} />
         </div>
         <form className="composer" onSubmit={(event) => { event.preventDefault(); send() }}>

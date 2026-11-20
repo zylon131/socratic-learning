@@ -85,7 +85,7 @@ const isUnknownOption = (text = '') => /不知道|不会数|没学过|不清楚|
 
 export const componentContract = `输出格式规则（正文逐字流式展示给学生）。
 首行且只占一行：@@dec {"topic":"本轮知识点","resolution":"keep|replace|resolve","move":"教学动作","objective":"本轮教学目标","reason":"选择此动作的原因"}
-如果 questionToAssess 存在且学生这轮实际回答了该题，@@dec 中另加 "assessment":{"questionId":"照抄 questionToAssess.id","answerExcerpt":"仅引用学生结论的原文片段","outcome":"correct|incorrect|uncertain","reasoningExcerpt":"仅在理由成立时逐字引用学生理由，否则空字符串"}。有 checkedAnswer 时按这个程序核对结果反馈。答案加追问也要评估其中的答案。猜对用 correct，不附理由。没作答、只追问/请求提示、要求收尾、更换主题、自动点评时省略 assessment。禁止把老师说的话或模型推理当成学生原文。
+如果 questionToAssess 存在且学生这轮实际回答了该题，@@dec 中另加 "assessment":{"questionId":"照抄 questionToAssess.id","answerExcerpt":"仅引用学生结论的原文片段","outcome":"correct|incorrect|uncertain","reasoningExcerpt":"仅在理由成立时逐字引用学生理由，否则空字符串"}。有 checkedAnswer 时按这个程序核对结果反馈。答案加追问也要评估其中的答案。猜对用 correct，不附理由。没作答、只追问/请求提示、要求收尾、更换主题时省略 assessment。自动点评只有 questionToAssess.studentResponse 存在时才评估学生自己的原话；客观题提交结果已在 submittedAnswer 中，无需复判。禁止把老师说的话或模型推理当成学生原文。
 @@dec 可另加 "proposed_task_action":{"type":"continue|offer_repair|resume_parent","targetSkillId":"先修技能ID","reason":"原因"}。
 这一轮认可学生理由，并换关键条件出一道新题来检查独立应用时，可另加 "transferCheck":true。照搬原题或问原题的理由时省略。
 
@@ -96,6 +96,7 @@ export const componentContract = `输出格式规则（正文逐字流式展示�
 数值题用 learn-number，含 prompt、answer（数字）、hint 和 explanation。需要学生用自己的话解释时用 learn-short_answer，含 prompt、hint，无需 answer。即使学生打算直接打字，也把本轮要核对的题放入题卡，系统会把文字作答关联到它。新题接替旧题时 resolution 用 replace；学生仍要重试旧题且没有新题时用 keep；题目完成且没有新题时用 resolve。
 
 可在需要时插入图解或交互探索，数据放在相应围栏中。
+用 learn-comparison 比较两个现象或案例。数据：{"title":"比较标题","items":[{"title":"案例一","detail":"可核验的特点"},{"title":"案例二","detail":"可核验的特点"}]}。对比只说明教学所需的事实，不透露接下来的题目答案。
 如果学生明确需要画图、操作或现有解释已无法解决同一难点，先在 @@dec 标记 "visualRequired":true，再输出实际的 learn-diagram 或 learn-explorer。正文应包含独立可读的解释。
 learn-diagram: {"title":"示意图标题","nodes":["概念一","概念二"],"edges":[[0,1]]}
 learn-explorer: {"component":"fraction","parts":4,"selected":1} 或 {"component":"equation","title":"原子视角","reactants":[{"formula":"H2","coeff":2}],"products":[{"formula":"H2O","coeff":2}],"interactive":true}。
@@ -251,7 +252,7 @@ export function normalizeProposal(raw, { allowQuestion = true, evidenceSources =
 // interleaved with ```learn-<type> component fences. Text deltas are surfaced
 // immediately (typewriter); a component is emitted once its fence closes.
 // Invalid fences degrade (component dropped, text kept) instead of failing the turn.
-export function createTeacherOutputParser({ allowQuestion = true, evidenceSources = [] } = {}) {
+export function createTeacherOutputParser({ allowQuestion = true, evidenceSources = [], teachingPlan = null, previousPrompts = [] } = {}) {
   let buffer = ''
   let outPos = 0
   let consumingDecision = false
@@ -332,6 +333,10 @@ export function createTeacherOutputParser({ allowQuestion = true, evidenceSource
     if (type === 'diagram' && str(block.title, 120) && list(block.nodes, 6) && block.nodes.length >= 2 && block.nodes.every((n) => str(n, 80)) && list(block.edges, 8) && block.edges.every((edge) => Array.isArray(edge) && edge.length === 2 && edge.every((n) => Number.isInteger(n) && n >= 0 && n < block.nodes.length) && edge[0] !== edge[1])) {
       return { kind: 'plain', props: { title: str(block.title, 120), nodes: block.nodes.map((n) => str(n, 80)), edges: block.edges } }
     }
+    if (type === 'comparison' && str(block.title, 120) && block.items?.length === 2 && Array.isArray(block.items) &&
+      block.items.every((item) => str(item?.title, 120) && str(item?.detail, 600))) {
+      return { kind: 'plain', props: { title: str(block.title, 120), items: block.items.map(({ title, detail }) => ({ title: str(title, 120), detail: str(detail, 600) })) } }
+    }
     if (type === 'explorer') {
       if (block.component === 'equation') {
         const normalizedEq = chemistryAdapter.normalizeEquationBlock(block)
@@ -374,6 +379,7 @@ export function createTeacherOutputParser({ allowQuestion = true, evidenceSource
           tolerance: type === 'number' ? block.tolerance ?? 0 : 0,
           options: ['choice', 'multi_choice'].includes(type) ? block.options.map((o) => str(o, 500)) : undefined,
           neutralOptions,
+          ...(block.focus === 'apply_rule' ? { focus: 'apply_rule' } : {}),
         },
       }
     }
@@ -402,7 +408,21 @@ export function createTeacherOutputParser({ allowQuestion = true, evidenceSource
     let act
     if (validated.kind === 'question') {
       if (question || !allowQuestion) return
-      question = { id: randomUUID(), type, tries: 0, ...validated.props }
+      const needsNewEvidence = teachingPlan?.questionMode === 'new_evidence'
+      const keptPrompt = validated.props.prompt.replace(/[\p{P}\s]/gu, '')
+      const repeatsPrompt = previousPrompts.some((prompt) => prompt?.replace(/[\p{P}\s]/gu, '') === keptPrompt)
+      const appliesRule = validated.props.focus === 'apply_rule' ||
+        /为什么|理由|依据|证据|反驳|足以|充分|仅凭|只凭|只知道|如果|假设|改变.{0,8}条件|what if|evidence|enough|why/i.test(validated.props.prompt)
+      if (needsNewEvidence && (repeatsPrompt || (type !== 'short_answer' && !appliesRule))) {
+        const options = validated.props.options?.map((option, index) => `${String.fromCharCode(65 + index)}. ${option}`).join('；')
+        const prompt = [validated.props.prompt, options, '请用一句话说明你的判断依据。'].filter(Boolean).join('\n')
+        question = { id: randomUUID(), type: 'short_answer', tries: 0, prompt, evidenceProbe: true }
+      } else {
+        question = {
+          id: randomUUID(), type, tries: 0, ...validated.props,
+          ...(needsNewEvidence ? { evidenceProbe: true, ...(type !== 'short_answer' ? { focus: 'apply_rule' } : {}) } : {}),
+        }
+      }
       blockOut = questionBlock(question)
       act = action('answer.submit', '提交答案', { target: question.id })
     } else if (validated.kind === 'explorer') {
@@ -530,7 +550,7 @@ export function createTeacherOutputParser({ allowQuestion = true, evidenceSource
     pushText()
     if (!presentation.length) throw new Error('No supported teaching content')
     const candidate = decisionRaw && typeof decisionRaw === 'object' ? decisionRaw : null
-    if (candidate?.visualRequired === true && !presentation.some((block) => ['diagram', 'explorer'].includes(block.type))) {
+    if ((candidate?.visualRequired === true || teachingPlan?.visual) && !presentation.some((block) => ['diagram', 'explorer', 'comparison'].includes(block.type))) {
       componentIssues.push({ type: 'visual', reason: 'required_visual_missing' })
     }
     if (componentIssues.length) presentation.push({ type: 'notice', props: { text: '部分教学内容暂时无法显示。可以先看文字讲解，或请老师用另一种方式展示。' } })
@@ -543,6 +563,7 @@ export function createTeacherOutputParser({ allowQuestion = true, evidenceSource
       if (!bounded(meta.check, 160)) meta.check = bounded(meta.objective, 160) ? meta.objective : '继续当前教学目标'
       const normalized = normalizeTeacherMetadata({ pedagogy: meta, observations: candidate.observations }, evidenceSources)
       decision = normalized.decision
+      if (teachingPlan && decision && !teachingPlan.moves.includes(decision.move)) decision = null
       observations = normalized.observations
     }
     const resolution = ['keep', 'replace', 'resolve'].includes(candidate?.resolution) ? candidate.resolution : null
@@ -580,18 +601,8 @@ export function practiceCheckpoint(state, currentAnswer = state.evidence.at(-1))
   return { topic: answer.topic, count: seen.size, questionId: answer.questionId, explained }
 }
 
-export function closePractice(checkpoint) {
-  const performance = checkpoint.count === 1 ? '你答对了这道变式题。' : `你连续答对了 ${checkpoint.count} 道题，能在这些题里作出正确判断。`
-  return frame([
-    textBlock(`「${checkpoint.topic}」可以先告一段落了。${performance}${checkpoint.explained ? '你也说出了自己的判断依据。' : '能不能自己解释理由，我们还没验证。'}\n\n可以继续下一个知识点，也可以就停在这里。${checkpoint.explained ? '' : '如果想确认理解，可以用自己的话说一句判断依据。'}`),
-  ], [
-    action('teacher.request', '继续下一个知识点', { intent: 'advance_lesson', display: '这个知识点先到这里，请带我学下一个。', prompt: `请在当前课程范围内，从「${checkpoint.topic}」推进到下一个相关知识点。先讲一个简短的新例子，不要继续出上一知识点的同类题。` }),
-    action('teacher.request', '再练一道', { intent: 'request_practice', display: '我想再练一道。', prompt: `请给我一道关于「${checkpoint.topic}」的变式题，然后等我回答。` }),
-  ])
-}
-
 export function publicState(state, revision) {
-  return { revision, phase: state.phase, level: state.studyScope || state.level, topic: state.topic, active: state.active, pending: state.pending && questionBlock(state.pending), evidence: state.evidence, objective: state.lastDecision?.objective || '', ...(state.followUp ? { followUp: { key: state.followUp.key, failed: state.followUp.failed === true } } : {}), ...(state.diagnosis?.active ? { diagnosis: { active: true } } : {}) }
+  return { revision, phase: state.phase, level: state.studyScope || state.level, topic: state.topic, active: state.active, pending: state.pending && questionBlock(state.pending), evidence: state.evidence, objective: state.lastDecision?.objective || '', ...(state.followUp ? { followUp: { key: state.followUp.key, failed: state.followUp.failed === true, interim: state.followUp.interim } } : {}), ...(state.diagnosis?.active ? { diagnosis: { active: true } } : {}) }
 }
 
 export function applyLearningEvent(subject, state, event) {

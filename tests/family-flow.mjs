@@ -5,8 +5,8 @@ import { randomUUID } from 'node:crypto'
 import { mkdir, readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import sharp from 'sharp'
-import { normalizeTeacherMetadata, readSubjectMemory } from '../server/teacher.js'
-import { applyLearningEvent, closePractice, commitProposal, createTeacherOutputParser, normalizeProposal, opening, practiceCheckpoint } from '../server/learning.js'
+import { normalizeTeacherMetadata, planTeachingTurn, readSubjectMemory } from '../server/teacher.js'
+import { applyLearningEvent, commitProposal, createTeacherOutputParser, normalizeProposal, opening, practiceCheckpoint } from '../server/learning.js'
 import { evaluateTextAnswer } from '../server/evidence.js'
 import { inferSkillId } from '../server/skills-registry.js'
 import { asksForNewExercise, asksToDiagnose, requestedStudyScope } from '../server/study-routing.js'
@@ -174,8 +174,28 @@ assert.equal(inferSkillId('chemistry', '化学变化与物理变化'), 'chem.phy
 const answeredCard = (questionId, topic = '化学变化与物理变化') => ({ questionId, topic, correct: true, attempt: 1, unsure: false })
 const oldPractice = { evidence: [answeredCard('first'), answeredCard('second')] }
 const checkpoint = practiceCheckpoint(oldPractice)
+const fence = String.fromCharCode(96).repeat(3)
 assert.equal(checkpoint.count, 2)
-assert.ok(closePractice(checkpoint).actions.some(item => item.intent === 'advance_lesson'))
+const continuePlan = planTeachingTurn({ text: '我选 B：蜡烛燃烧生成水和二氧化碳。请判断并接着讲。', progress: checkpoint, continuation: true })
+assert.equal(continuePlan.goal, 'continue_with_new_evidence')
+assert.equal(continuePlan.moves.includes('recap'), false)
+assert.equal(planTeachingTurn({ text: '我今天不学了', progress: checkpoint }).questionMode, 'none')
+assert.equal(planTeachingTurn({ text: '能不能快一点，直接讲' }).questionMode, 'none')
+assert.equal(planTeachingTurn({ text: '我是猜的' }).goal, 'verify_guess')
+assert.equal(planTeachingTurn({ text: '我还是不懂，给我画图' }).visual, true)
+assert.equal(planTeachingTurn({ text: '我想换一个知识点' }).goal, 'change_topic')
+assert.equal(evaluateTextAnswer(choiceQuestion, null, '我选 B：walks。请判断并接着讲。').outcome, 'correct')
+const plannedParser = createTeacherOutputParser({ teachingPlan: continuePlan, previousPrompts: ['哪个属于化学变化？'] })
+plannedParser.feed('@@dec {"topic":"变化","move":"compare","objective":"理解证据"}\n先看两个现象。\n' +
+  fence + 'learn-comparison\n{"title":"观察对照","items":[{"title":"一","detail":"特征甲"},{"title":"二","detail":"特征乙"}]}\n' + fence + '\n' +
+  fence + 'learn-choice\n{"prompt":"哪个属于化学变化？","options":["甲","乙"],"answer":1,"focus":"apply_rule"}\n' + fence + '\n' +
+  fence + 'learn-short_answer\n{"prompt":"你会找什么证据？"}\n' + fence)
+const plannedFrame = plannedParser.finalize()
+assert.ok(plannedFrame.frame.presentation.some(item => item.type === 'comparison'))
+assert.equal(plannedFrame.question.evidenceProbe, true)
+assert.equal(plannedFrame.question.type, 'short_answer')
+assert.equal(plannedFrame.decision.move, 'compare')
+assert.match(plannedFrame.question.prompt, /说明你的判断依据/)
 assert.equal(practiceCheckpoint({ ...oldPractice, practiceBoundary: 'second' }), null)
 assert.equal(practiceCheckpoint({ evidence: [answeredCard('first'), answeredCard('first')] }), null)
 assert.equal(practiceCheckpoint({ evidence: [answeredCard('first'), answeredCard('second', '原子计数')] }), null)
@@ -183,7 +203,6 @@ assert.equal(practiceCheckpoint({ evidence: [answeredCard('first'), { ...answere
 assert.equal(practiceCheckpoint({ evidence: [answeredCard('first'), { ...answeredCard('second'), assisted: true }] }), null)
 assert.equal(computeSkillProjection(['first', 'second'].map(id => ({ id, verdict: 'correct', evidence_source: 'rule_engine', assessment: { questionId: id } }))).level, 'emerging')
 const richParser = createTeacherOutputParser()
-const fence = String.fromCharCode(96).repeat(3)
 const visualEvents = richParser.feed('先看图。\n' + fence + 'learn-diagram\n{"title":"流程","nodes":["甲","乙"],"edges":[[0,1]]}\n' + fence + '\n回到例子。\n')
 assert.deepEqual(visualEvents.events.map((item) => item.type), ['text', 'component', 'text'])
 assert.deepEqual(richParser.finalize().frame.presentation.map((item) => item.type), ['text', 'diagram', 'text'])

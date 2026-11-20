@@ -510,6 +510,18 @@ function Diagram({ props }) {
   return <figure className="lesson-diagram"><figcaption>{props.title}</figcaption><ul>{props.edges.map(([from, to], i) => <li key={i}><span>{renderInlineRich(props.nodes[from], `dn-f-${i}`)}</span><ArrowRight aria-label="指向" size={18} /><span>{renderInlineRich(props.nodes[to], `dn-t-${i}`)}</span></li>)}</ul></figure>
 }
 
+function Comparison({ props }) {
+  return <figure className="lesson-diagram lesson-prose">
+    <figcaption>{props.title}</figcaption>
+    <table className="prose-table">
+      <tbody>{props.items.map((item, index) => <tr key={index}>
+        <th scope="row">{renderInlineRich(item.title, `comparison-title-${index}`)}</th>
+        <td>{renderInlineRich(item.detail, `comparison-detail-${index}`)}</td>
+      </tr>)}</tbody>
+    </table>
+  </figure>
+}
+
 // Only renderers shipped by this product can run. Model output supplies data only.
 const registry = {
   text: Text,
@@ -529,6 +541,7 @@ const registry = {
   flashcards: Flashcards,
   explorer: Explorer,
   diagram: Diagram,
+  comparison: Comparison,
   options: ({ props }) => <div className="lesson-options-heading"><h3>{props.title}</h3><p className="muted">{props.hint}</p></div>,
 }
 

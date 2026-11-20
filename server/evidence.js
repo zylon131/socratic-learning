@@ -66,7 +66,7 @@ export async function evaluateAndRecordAnswer(tx, {
     modelVersion: 'none',
     evidenceSource: evalResult.evidenceSource,
     submissionKey,
-    assessment: { questionId: question.id, answerExcerpt: answerText, outcome: evalResult.verdict, ...(unsure ? { unsure: true } : {}), ...(question.transferFrom ? { transferFrom: question.transferFrom } : {}), attempt: question.tries },
+    assessment: { questionId: question.id, answerExcerpt: answerText, outcome: evalResult.verdict, ...(unsure ? { unsure: true } : {}), ...(question.evidenceProbe ? { focus: question.focus || 'reasoning' } : {}), ...(question.transferFrom ? { transferFrom: question.transferFrom } : {}), attempt: question.tries },
   })
 
   return {
@@ -104,11 +104,12 @@ export function evaluateTextAnswer(question, assessment, studentText, { reasonin
   const validAssessment = assessment?.questionId === question.id && modelAnswer && modelAnswer.length <= 1000 &&
     original.includes(modelAnswer) && ['correct', 'incorrect', 'uncertain'].includes(assessment.outcome)
   const exact = original.replace(/[。.!！]+$/, '')
+  const namedChoice = question.type === 'choice' && exact.match(/^我(?:先)?选(?:择)?\s*[A-FＡ-Ｆ](?=[:：、，。,.\s]|$)/i)?.[0]
   const directOutcome = /^[a-f]$/i.test(exact) || question.options?.some((option) => option.toLowerCase() === exact.toLowerCase()) || question.type === 'number'
     ? checkWrittenValue(question, exact)
-    : null
+    : namedChoice ? checkWrittenValue(question, namedChoice) : null
   if (!validAssessment && !directOutcome) return null
-  const answer = directOutcome ? exact : modelAnswer
+  const answer = directOutcome ? (namedChoice || exact) : modelAnswer
   const objectiveOutcome = directOutcome || checkWrittenValue(question, answer)
   const outcome = objectiveOutcome || assessment.outcome
   const unsure = /猜的|蒙的|不太确定|不确定为什么/.test(original)
